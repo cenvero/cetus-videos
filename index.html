@@ -4,191 +4,760 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Cenvero Video Gallery</title>
-
   <style>
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
 
-    *{
-      margin:0;
-      padding:0;
-      box-sizing:border-box;
+    :root {
+      --accent: #ff004c;
+      --bg: #0f0f0f;
+      --bg2: #141414;
+      --bg3: #1a1a1a;
+      --border: #222;
+      --text: #fff;
+      --text2: #aaa;
+      --text3: #666;
+      --radius: 10px;
     }
 
-    body{
-      background:#0b0b0b;
-      color:white;
-      font-family:Arial,sans-serif;
-      padding:40px;
+    html, body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+      height: 100%;
+      overflow-x: hidden;
     }
 
-    h1{
-      text-align:center;
-      font-size:52px;
-      margin-bottom:15px;
+    /* ── TOP BAR ── */
+    .topbar {
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      padding: 0 20px;
+      height: 56px;
+      background: rgba(15,15,15,0.92);
+      backdrop-filter: blur(10px);
+      border-bottom: 1px solid var(--border);
+    }
+    .logo {
+      font-size: 18px;
+      font-weight: 700;
+      color: var(--text);
+      letter-spacing: -0.03em;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .logo span { color: var(--accent); }
+    .video-count {
+      font-size: 12px;
+      color: var(--text3);
+      background: var(--bg3);
+      border-radius: 20px;
+      padding: 3px 10px;
     }
 
-    .subtitle{
-      text-align:center;
-      color:#999;
-      margin-bottom:50px;
-      font-size:18px;
+    /* ── LAYOUT ── */
+    .layout {
+      display: flex;
+      height: calc(100vh - 56px);
+      overflow: hidden;
     }
 
-    .grid{
-      display:grid;
-      grid-template-columns:repeat(auto-fit,minmax(340px,1fr));
-      gap:28px;
+    /* ── MAIN PLAYER AREA ── */
+    .main {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      padding: 16px 20px;
+      gap: 12px;
+      min-width: 0;
     }
 
-    .card{
-      background:#141414;
-      border-radius:22px;
-      overflow:hidden;
-      border:1px solid #222;
-      transition:0.25s;
+    /* ── PLAYER ── */
+    .player-wrap {
+      position: relative;
+      width: 100%;
+      background: #000;
+      border-radius: var(--radius);
+      overflow: hidden;
+      cursor: pointer;
+      flex-shrink: 0;
+    }
+    .player-wrap.theater {
+      border-radius: 0;
     }
 
-    .card:hover{
-      transform:translateY(-6px);
-      border-color:#555;
+    .video-el {
+      display: block;
+      width: 100%;
+      /* natural height — shows full real size, letterboxed */
+      max-height: calc(100vh - 56px - 140px);
+      object-fit: contain;
+      background: #000;
     }
 
-    video{
-      width:100%;
-      height:220px;
-      background:black;
+    /* ── OVERLAY ── */
+    .overlay {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity .15s;
+    }
+    .overlay.show { opacity: 1; }
+    .big-play {
+      width: 64px;
+      height: 64px;
+      background: rgba(0,0,0,.6);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      backdrop-filter: blur(4px);
+    }
+    .big-play svg { width: 32px; height: 32px; fill: #fff; margin-left: 4px; }
+
+    /* ── CONTROLS ── */
+    .controls {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background: linear-gradient(transparent, rgba(0,0,0,.9));
+      padding: 24px 14px 12px;
+      opacity: 0;
+      transition: opacity .2s;
+      pointer-events: none;
+    }
+    .player-wrap:hover .controls,
+    .player-wrap.paused .controls {
+      opacity: 1;
+      pointer-events: all;
     }
 
-    .content{
-      padding:22px;
+    /* Progress */
+    .progress-area {
+      position: relative;
+      height: 18px;
+      display: flex;
+      align-items: center;
+      cursor: pointer;
+      margin-bottom: 8px;
+    }
+    .progress-track {
+      position: absolute;
+      left: 0; right: 0;
+      height: 4px;
+      background: rgba(255,255,255,.2);
+      border-radius: 2px;
+      transition: height .1s;
+    }
+    .progress-area:hover .progress-track { height: 6px; }
+    .progress-buffered {
+      position: absolute;
+      left: 0; top: 0;
+      height: 100%;
+      background: rgba(255,255,255,.3);
+      border-radius: 2px;
+      pointer-events: none;
+      width: 0%;
+    }
+    .progress-played {
+      position: absolute;
+      left: 0; top: 0;
+      height: 100%;
+      background: var(--accent);
+      border-radius: 2px;
+      pointer-events: none;
+      width: 0%;
+    }
+    .progress-thumb {
+      position: absolute;
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: var(--accent);
+      top: 50%;
+      transform: translate(-50%, -50%) scale(0);
+      transition: transform .1s;
+      pointer-events: none;
+    }
+    .progress-area:hover .progress-thumb { transform: translate(-50%, -50%) scale(1); }
+
+    /* Tooltip on hover */
+    .progress-tooltip {
+      position: absolute;
+      bottom: 22px;
+      background: rgba(0,0,0,.85);
+      color: #fff;
+      font-size: 11px;
+      padding: 3px 7px;
+      border-radius: 4px;
+      pointer-events: none;
+      white-space: nowrap;
+      transform: translateX(-50%);
+      display: none;
+    }
+    .progress-area:hover .progress-tooltip { display: block; }
+
+    /* Bottom controls row */
+    .ctrl-row {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .cbtn {
+      background: none;
+      border: none;
+      color: #fff;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 36px;
+      height: 36px;
+      border-radius: 6px;
+      transition: background .15s;
+      flex-shrink: 0;
+    }
+    .cbtn:hover { background: rgba(255,255,255,.12); }
+    .cbtn svg { width: 20px; height: 20px; fill: currentColor; }
+    .cbtn.active svg { fill: var(--accent); }
+
+    .time-display {
+      font-size: 13px;
+      color: #ddd;
+      white-space: nowrap;
+      user-select: none;
+      padding: 0 4px;
+    }
+    .sep { color: var(--text3); }
+    .spacer { flex: 1; }
+
+    .vol-group {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .vol-slider {
+      width: 0;
+      overflow: hidden;
+      transition: width .2s;
+      -webkit-appearance: none;
+      height: 4px;
+      border-radius: 2px;
+      background: rgba(255,255,255,.3);
+      outline: none;
+      cursor: pointer;
+      vertical-align: middle;
+    }
+    .vol-group:hover .vol-slider { width: 72px; }
+    .vol-slider::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 12px; height: 12px;
+      border-radius: 50%;
+      background: #fff;
     }
 
-    .title{
-      font-size:20px;
-      font-weight:bold;
-      margin-bottom:16px;
-      word-break:break-word;
+    .speed-btn {
+      background: none;
+      border: 1px solid rgba(255,255,255,.2);
+      color: #ddd;
+      font-size: 12px;
+      font-weight: 600;
+      padding: 3px 8px;
+      border-radius: 4px;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+    .speed-btn:hover { background: rgba(255,255,255,.1); }
+
+    .quality-badge {
+      font-size: 11px;
+      color: var(--text3);
+      border: 1px solid var(--text3);
+      padding: 2px 6px;
+      border-radius: 3px;
+      font-weight: 600;
+      cursor: default;
     }
 
-    .buttons{
-      display:flex;
-      gap:12px;
+    /* ── VIDEO META ── */
+    .video-meta-box {
+      flex-shrink: 0;
+    }
+    .video-title {
+      font-size: 18px;
+      font-weight: 600;
+      line-height: 1.35;
+      margin-bottom: 6px;
+      word-break: break-word;
+    }
+    .video-sub {
+      font-size: 13px;
+      color: var(--text2);
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+    .tag {
+      background: var(--bg3);
+      border-radius: 20px;
+      padding: 2px 10px;
+      font-size: 12px;
+    }
+    .dl-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 7px 16px;
+      background: var(--bg3);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: #fff;
+      text-decoration: none;
+      font-size: 13px;
+      font-weight: 500;
+      transition: background .15s;
+    }
+    .dl-btn:hover { background: #252525; }
+    .dl-btn svg { width: 15px; height: 15px; fill: currentColor; }
+
+    /* ── SIDEBAR ── */
+    .sidebar {
+      width: 340px;
+      flex-shrink: 0;
+      border-left: 1px solid var(--border);
+      overflow-y: auto;
+      padding: 16px 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .sidebar::-webkit-scrollbar { width: 4px; }
+    .sidebar::-webkit-scrollbar-track { background: transparent; }
+    .sidebar::-webkit-scrollbar-thumb { background: #333; border-radius: 2px; }
+
+    .sidebar-hdr {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text3);
+      text-transform: uppercase;
+      letter-spacing: .06em;
+      padding: 4px 6px 10px;
     }
 
-    .btn{
-      flex:1;
-      text-align:center;
-      text-decoration:none;
-      padding:13px;
-      border-radius:14px;
-      font-weight:bold;
-      transition:0.2s;
+    .vid-card {
+      display: flex;
+      gap: 10px;
+      padding: 8px;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: background .15s;
+      border: 1px solid transparent;
+      align-items: flex-start;
+    }
+    .vid-card:hover { background: var(--bg3); }
+    .vid-card.active {
+      background: var(--bg3);
+      border-color: rgba(255,0,76,.3);
+    }
+    .vid-card.active .card-idx { color: var(--accent); }
+
+    .card-thumb {
+      width: 120px;
+      height: 68px;
+      border-radius: 6px;
+      background: #000;
+      overflow: hidden;
+      flex-shrink: 0;
+      position: relative;
+    }
+    .card-thumb video {
+      width: 100%; height: 100%;
+      object-fit: cover;
+      pointer-events: none;
+    }
+    .card-dur {
+      position: absolute;
+      bottom: 4px; right: 4px;
+      background: rgba(0,0,0,.8);
+      font-size: 11px;
+      padding: 1px 5px;
+      border-radius: 3px;
+      color: #fff;
     }
 
-    .watch{
-      background:#ff004c;
-      color:white;
+    .card-info { flex: 1; min-width: 0; }
+    .card-name {
+      font-size: 13px;
+      font-weight: 500;
+      line-height: 1.35;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+      margin-bottom: 4px;
+    }
+    .card-path {
+      font-size: 11px;
+      color: var(--text3);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .card-idx {
+      font-size: 12px;
+      color: var(--text3);
+      font-weight: 600;
+      min-width: 20px;
+      text-align: right;
+      margin-top: 2px;
     }
 
-    .download{
-      background:#232323;
-      color:white;
+    .empty-state {
+      text-align: center;
+      color: var(--text3);
+      padding: 60px 20px;
+      font-size: 14px;
+      line-height: 1.7;
     }
 
-    .btn:hover{
-      opacity:0.88;
-    }
+    /* ── FULLSCREEN adjustments ── */
+    .player-wrap:-webkit-full-screen .video-el { max-height: 100vh; }
+    .player-wrap:-moz-full-screen .video-el { max-height: 100vh; }
+    .player-wrap:fullscreen .video-el { max-height: 100vh; }
+    .player-wrap:fullscreen .controls { opacity: 1; }
 
-    footer{
-      margin-top:60px;
-      text-align:center;
-      color:#777;
-      font-size:14px;
+    /* ── RESPONSIVE ── */
+    @media (max-width: 768px) {
+      .sidebar { display: none; }
+      .main { padding: 10px; }
     }
-
   </style>
 </head>
-
 <body>
 
-  <h1>🎬 Explore Demo Videos</h1>
-
-  <div class="subtitle">
-    Auto generated from repository MP4 files
+  <div class="topbar">
+    <div class="logo">🎬 Cenvero <span>Videos</span></div>
+    <div class="video-count" id="vcnt">0 videos</div>
   </div>
 
-  <div class="grid">
-
-    <div class="card">
-
-      <video controls preload="metadata">
-        <source src="cetuslaunch.mp4" type="video/mp4">
-      </video>
-
-      <div class="content">
-
-        <div class="title">
-          cetuslaunch.mp4
+  <div class="layout">
+    <div class="main">
+      <div class="player-wrap" id="playerWrap">
+        <video class="video-el" id="mainVideo" preload="metadata"></video>
+        <div class="overlay" id="overlay">
+          <div class="big-play">
+            <svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+          </div>
         </div>
-
-        <div class="buttons">
-
-          <a class="btn watch"
-             href="cetuslaunch.mp4"
-             target="_blank">
-             ▶ Watch
-          </a>
-
-          <a class="btn download"
-             href="cetuslaunch.mp4"
-             download>
-             ⬇ Download
-          </a>
-
+        <div class="controls">
+          <div class="progress-area" id="progressArea">
+            <div class="progress-track">
+              <div class="progress-buffered" id="progressBuf"></div>
+              <div class="progress-played" id="progressPlay"></div>
+              <div class="progress-thumb" id="progressThumb"></div>
+            </div>
+            <div class="progress-tooltip" id="progressTip">0:00</div>
+          </div>
+          <div class="ctrl-row">
+            <button class="cbtn" id="playBtn" title="Play / Pause (Space)">
+              <svg id="playIcon" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+            </button>
+            <button class="cbtn" id="prevBtn" title="Previous (P)">
+              <svg viewBox="0 0 24 24"><path d="M6 6h2v12H6zm3.5 6 8.5 6V6z"/></svg>
+            </button>
+            <button class="cbtn" id="nextBtn" title="Next (N)">
+              <svg viewBox="0 0 24 24"><path d="M6 18l8.5-6L6 6v12zm10-12v12h2V6h-2z"/></svg>
+            </button>
+            <div class="vol-group">
+              <button class="cbtn" id="muteBtn" title="Mute (M)">
+                <svg id="volIcon" viewBox="0 0 24 24"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02z"/></svg>
+              </button>
+              <input type="range" class="vol-slider" id="volSlider" min="0" max="100" value="100">
+            </div>
+            <span class="time-display" id="timeDisp">0:00 <span class="sep">/</span> 0:00</span>
+            <div class="spacer"></div>
+            <span class="quality-badge" id="qualBadge">MP4</span>
+            <button class="speed-btn" id="speedBtn" title="Playback Speed">1×</button>
+            <button class="cbtn" id="pipBtn" title="Picture in Picture">
+              <svg viewBox="0 0 24 24"><path d="M19 7h-8v6h8V7zm2-4H3c-1.1 0-2 .9-2 2v14c0 1.1.9 1.99 2 2h18c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H3V5h18v14z"/></svg>
+            </button>
+            <button class="cbtn" id="fsBtn" title="Fullscreen (F)">
+              <svg id="fsIcon" viewBox="0 0 24 24"><path d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"/></svg>
+            </button>
+          </div>
         </div>
-
       </div>
 
-    </div>
-
-
-    <div class="card">
-
-      <video controls preload="metadata">
-        <source src="cetusm.mp4" type="video/mp4">
-      </video>
-
-      <div class="content">
-
-        <div class="title">
-          cetusm.mp4
-        </div>
-
-        <div class="buttons">
-
-          <a class="btn watch"
-             href="cetusm.mp4"
-             target="_blank">
-             ▶ Watch
+      <div class="video-meta-box">
+        <div class="video-title" id="vtitle">No video selected</div>
+        <div class="video-sub">
+          <span id="vpath" style="color:var(--text3);font-size:12px"></span>
+          <a class="dl-btn" id="dlBtn" href="#" download style="display:none">
+            <svg viewBox="0 0 24 24"><path d="M19 9h-4V3H9v6H5l7 7 7-7zm-8 2V5h2v6h1.17L12 13.17 9.83 11H11zm-6 7h14v2H5z"/></svg>
+            Download
           </a>
-
-          <a class="btn download"
-             href="cetusm.mp4"
-             download>
-             ⬇ Download
-          </a>
-
         </div>
-
       </div>
-
     </div>
 
-
+    <div class="sidebar">
+      <div class="sidebar-hdr">Up Next</div>
+      <div id="videoList"></div>
+    </div>
   </div>
 
-  <footer>
-    Powered by GitHub Actions • Auto Updated
-  </footer>
+  <script>
+const VIDEOS = [];
+
+(function(){
+  const video   = document.getElementById('mainVideo');
+  const playBtn = document.getElementById('playBtn');
+  const playIcon= document.getElementById('playIcon');
+  const prevBtn = document.getElementById('prevBtn');
+  const nextBtn = document.getElementById('nextBtn');
+  const muteBtn = document.getElementById('muteBtn');
+  const volIcon = document.getElementById('volIcon');
+  const volSlider = document.getElementById('volSlider');
+  const timeDisp  = document.getElementById('timeDisp');
+  const progressArea = document.getElementById('progressArea');
+  const progressPlay = document.getElementById('progressPlay');
+  const progressBuf  = document.getElementById('progressBuf');
+  const progressThumb= document.getElementById('progressThumb');
+  const progressTip  = document.getElementById('progressTip');
+  const fsBtn  = document.getElementById('fsBtn');
+  const fsIcon = document.getElementById('fsIcon');
+  const pipBtn = document.getElementById('pipBtn');
+  const speedBtn = document.getElementById('speedBtn');
+  const vtitle = document.getElementById('vtitle');
+  const vpath  = document.getElementById('vpath');
+  const dlBtn  = document.getElementById('dlBtn');
+  const vcnt   = document.getElementById('vcnt');
+  const playerWrap = document.getElementById('playerWrap');
+  const overlay    = document.getElementById('overlay');
+  const qualBadge  = document.getElementById('qualBadge');
+  const videoListEl= document.getElementById('videoList');
+
+  const PLAY_PATH  = 'M8 5v14l11-7z';
+  const PAUSE_PATH = 'M6 19h4V5H6v14zm8-14v14h4V5h-4z';
+  const VOL_PATHS  = {
+    mute: 'M16.5 12c0-1.77-1.02-3.29-2.5-4.03v2.21l2.45 2.45c.03-.2.05-.41.05-.63zm2.5 0c0 .94-.2 1.82-.54 2.64l1.51 1.51C20.63 14.91 21 13.5 21 12c0-4.28-2.99-7.86-7-8.77v2.06c2.89.86 5 3.54 5 6.71zM4.27 3L3 4.27 7.73 9H3v6h4l5 5v-6.73l4.25 4.25c-.67.52-1.42.93-2.25 1.18v2.06c1.38-.31 2.63-.95 3.69-1.81L19.73 21 21 19.73l-9-9L4.27 3zM12 4L9.91 6.09 12 8.18V4z',
+    low:  'M18.5 12c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM5 9v6h4l5 5V4L9 9H5z',
+    med:  'M18.5 12c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM5 9v6h4l5 5V4L9 9H5z',
+    high: 'M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z'
+  };
+  const FS_ENTER = 'M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z';
+  const FS_EXIT  = 'M5 16h3v3h2v-5H5v2zm3-8H5v2h5V5H8v3zm6 11h2v-3h3v-2h-5v5zm2-11V5h-2v5h5V8h-3z';
+
+  const speeds = [0.25,0.5,0.75,1,1.25,1.5,1.75,2];
+  let speedIdx = 3;
+  let current  = -1;
+  let seekDrag = false;
+
+  vcnt.textContent = VIDEOS.length + ' video' + (VIDEOS.length !== 1 ? 's' : '');
+
+  function fmt(s) {
+    if (!s || isNaN(s)) return '0:00';
+    const h = Math.floor(s / 3600);
+    const m = Math.floor((s % 3600) / 60);
+    const sec = Math.floor(s % 60);
+    if (h > 0) return h + ':' + (m < 10 ? '0' : '') + m + ':' + (sec < 10 ? '0' : '') + sec;
+    return m + ':' + (sec < 10 ? '0' : '') + sec;
+  }
+
+  function pct(e) {
+    const r = progressArea.getBoundingClientRect();
+    return Math.max(0, Math.min(1, (e.clientX - r.left) / r.width));
+  }
+
+  function setVolIcon(v, muted) {
+    const p = (muted || v === 0) ? VOL_PATHS.mute : v < 0.4 ? VOL_PATHS.low : v < 0.7 ? VOL_PATHS.med : VOL_PATHS.high;
+    volIcon.innerHTML = '<path d="' + p + '"/>';
+  }
+
+  function load(idx) {
+    if (!VIDEOS.length) return;
+    current = (idx + VIDEOS.length) % VIDEOS.length;
+    const v = VIDEOS[current];
+    video.src = v.src;
+    vtitle.textContent = v.name;
+    vpath.textContent  = v.path;
+    dlBtn.href = v.src;
+    dlBtn.download = v.name;
+    dlBtn.style.display = 'inline-flex';
+    video.load();
+    video.play().catch(() => {});
+    document.querySelectorAll('.vid-card').forEach((c, i) => {
+      c.classList.toggle('active', i === current);
+    });
+    const active = document.querySelector('.vid-card.active');
+    if (active) active.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+  }
+
+  function renderList() {
+    if (!VIDEOS.length) {
+      videoListEl.innerHTML = '<div class="empty-state">No MP4 files found.<br>Push a commit with .mp4 files to populate the gallery.</div>';
+      return;
+    }
+    videoListEl.innerHTML = VIDEOS.map((v, i) => `
+      <div class="vid-card" data-idx="${i}">
+        <div class="card-thumb">
+          <video src="${v.src}" preload="metadata" muted playsinline></video>
+          <div class="card-dur" data-dur-idx="${i}">—</div>
+        </div>
+        <div class="card-info">
+          <div class="card-name">${v.name}</div>
+          <div class="card-path">${v.path}</div>
+        </div>
+        <div class="card-idx">${i + 1}</div>
+      </div>
+    `).join('');
+
+    videoListEl.querySelectorAll('.vid-card').forEach(card => {
+      card.addEventListener('click', () => load(parseInt(card.dataset.idx)));
+    });
+
+    // populate durations on thumb videos
+    videoListEl.querySelectorAll('.card-thumb video').forEach((tv, i) => {
+      tv.addEventListener('loadedmetadata', () => {
+        const el = videoListEl.querySelector('[data-dur-idx="' + i + '"]');
+        if (el) el.textContent = fmt(tv.duration);
+      });
+    });
+  }
+
+  renderList();
+  if (VIDEOS.length) load(0);
+
+  // Play / pause toggle
+  playBtn.addEventListener('click', () => video.paused ? video.play() : video.pause());
+  playerWrap.addEventListener('click', e => {
+    if (e.target === playerWrap || e.target === video) {
+      video.paused ? video.play() : video.pause();
+    }
+  });
+  video.addEventListener('play',  () => {
+    playIcon.innerHTML = '<path d="' + PAUSE_PATH + '"/>';
+    playerWrap.classList.remove('paused');
+    overlay.classList.remove('show');
+  });
+  video.addEventListener('pause', () => {
+    playIcon.innerHTML = '<path d="' + PLAY_PATH + '"/>';
+    playerWrap.classList.add('paused');
+    overlay.classList.add('show');
+  });
+  video.addEventListener('ended', () => load(current + 1));
+
+  // Progress bar
+  video.addEventListener('timeupdate', () => {
+    const p = video.duration ? (video.currentTime / video.duration * 100) : 0;
+    progressPlay.style.width = p + '%';
+    progressThumb.style.left = p + '%';
+    timeDisp.innerHTML = fmt(video.currentTime) + ' <span class="sep">/</span> ' + fmt(video.duration);
+  });
+  video.addEventListener('progress', () => {
+    if (video.buffered.length && video.duration) {
+      progressBuf.style.width = (video.buffered.end(video.buffered.length - 1) / video.duration * 100) + '%';
+    }
+  });
+
+  progressArea.addEventListener('mousemove', e => {
+    const p = pct(e);
+    progressTip.textContent = fmt(p * (video.duration || 0));
+    progressTip.style.left = (p * 100) + '%';
+    if (seekDrag) {
+      progressPlay.style.width = (p * 100) + '%';
+      progressThumb.style.left = (p * 100) + '%';
+    }
+  });
+  progressArea.addEventListener('mousedown', e => {
+    seekDrag = true;
+    video.currentTime = pct(e) * video.duration;
+  });
+  document.addEventListener('mouseup', e => {
+    if (seekDrag) {
+      video.currentTime = pct(e) * (video.duration || 0);
+      seekDrag = false;
+    }
+  });
+  document.addEventListener('mousemove', e => {
+    if (seekDrag && video.duration) {
+      const r = progressArea.getBoundingClientRect();
+      const p = Math.max(0, Math.min(1, (e.clientX - r.left) / r.width));
+      progressPlay.style.width = (p * 100) + '%';
+      progressThumb.style.left = (p * 100) + '%';
+    }
+  });
+
+  // Volume
+  muteBtn.addEventListener('click', () => {
+    video.muted = !video.muted;
+    setVolIcon(video.volume, video.muted);
+  });
+  volSlider.addEventListener('input', () => {
+    video.volume = volSlider.value / 100;
+    video.muted  = video.volume === 0;
+    setVolIcon(video.volume, video.muted);
+  });
+  setVolIcon(1, false);
+
+  // Speed
+  speedBtn.addEventListener('click', () => {
+    speedIdx = (speedIdx + 1) % speeds.length;
+    video.playbackRate = speeds[speedIdx];
+    speedBtn.textContent = speeds[speedIdx] + '×';
+  });
+
+  // PiP
+  pipBtn.addEventListener('click', async () => {
+    try { await video.requestPictureInPicture(); } catch (e) {}
+  });
+
+  // Fullscreen
+  fsBtn.addEventListener('click', () => {
+    if (!document.fullscreenElement) playerWrap.requestFullscreen();
+    else document.exitFullscreen();
+  });
+  document.addEventListener('fullscreenchange', () => {
+    const isFs = !!document.fullscreenElement;
+    fsIcon.innerHTML = '<path d="' + (isFs ? FS_EXIT : FS_ENTER) + '"/>';
+  });
+
+  // Keyboard shortcuts
+  document.addEventListener('keydown', e => {
+    if (['INPUT','TEXTAREA'].includes(e.target.tagName)) return;
+    switch (e.code) {
+      case 'Space': case 'KeyK': e.preventDefault(); video.paused ? video.play() : video.pause(); break;
+      case 'ArrowRight': video.currentTime = Math.min(video.duration||0, video.currentTime + 10); break;
+      case 'ArrowLeft':  video.currentTime = Math.max(0, video.currentTime - 10); break;
+      case 'ArrowUp':    e.preventDefault(); video.volume = Math.min(1, video.volume + 0.1); volSlider.value = video.volume * 100; setVolIcon(video.volume, video.muted); break;
+      case 'ArrowDown':  e.preventDefault(); video.volume = Math.max(0, video.volume - 0.1); volSlider.value = video.volume * 100; setVolIcon(video.volume, video.muted); break;
+      case 'KeyM': muteBtn.click(); break;
+      case 'KeyF': fsBtn.click(); break;
+      case 'KeyN': load(current + 1); break;
+      case 'KeyP': load(current - 1); break;
+      case 'Home': video.currentTime = 0; break;
+      case 'End':  video.currentTime = video.duration || 0; break;
+    }
+  });
+
+  // Auto-detect resolution for badge
+  video.addEventListener('loadedmetadata', () => {
+    const h = video.videoHeight;
+    qualBadge.textContent = h >= 2160 ? '4K' : h >= 1080 ? 'FHD' : h >= 720 ? 'HD' : h >= 480 ? 'SD' : 'MP4';
+  });
+})();
+  </script>
 
 </body>
 </html>
