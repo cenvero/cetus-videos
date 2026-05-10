@@ -9,20 +9,23 @@ on:
 
 permissions:
   contents: write
+  pages: write
+  id-token: write
 
 jobs:
   build-gallery:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout Repo
+      - name: Checkout Repository
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      - name: Generate Video Gallery
+      - name: Generate Gallery
         run: |
-          echo "Searching for MP4 files..."
+
+          echo "Generating video gallery..."
 
           cat > index.html << 'EOF'
           <!DOCTYPE html>
@@ -30,9 +33,10 @@ jobs:
           <head>
             <meta charset="UTF-8">
             <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <title>Video Gallery</title>
+            <title>Cenvero Video Gallery</title>
 
             <style>
+
               *{
                 margin:0;
                 padding:0;
@@ -40,34 +44,41 @@ jobs:
               }
 
               body{
-                font-family:Arial,sans-serif;
-                background:#0f0f0f;
+                background:#0b0b0b;
                 color:white;
+                font-family:Arial,sans-serif;
                 padding:40px;
               }
 
               h1{
                 text-align:center;
-                margin-bottom:40px;
-                font-size:42px;
+                font-size:52px;
+                margin-bottom:15px;
+              }
+
+              .subtitle{
+                text-align:center;
+                color:#999;
+                margin-bottom:50px;
+                font-size:18px;
               }
 
               .grid{
                 display:grid;
-                grid-template-columns:repeat(auto-fit,minmax(320px,1fr));
-                gap:25px;
+                grid-template-columns:repeat(auto-fit,minmax(340px,1fr));
+                gap:28px;
               }
 
               .card{
-                background:#1a1a1a;
-                border-radius:20px;
+                background:#141414;
+                border-radius:22px;
                 overflow:hidden;
-                transition:0.3s;
-                border:1px solid #2a2a2a;
+                border:1px solid #222;
+                transition:0.25s;
               }
 
               .card:hover{
-                transform:translateY(-5px);
+                transform:translateY(-6px);
                 border-color:#555;
               }
 
@@ -78,50 +89,52 @@ jobs:
               }
 
               .content{
-                padding:20px;
+                padding:22px;
               }
 
               .title{
                 font-size:20px;
                 font-weight:bold;
-                margin-bottom:12px;
+                margin-bottom:16px;
                 word-break:break-word;
               }
 
               .buttons{
                 display:flex;
-                gap:10px;
+                gap:12px;
               }
 
               .btn{
                 flex:1;
                 text-align:center;
                 text-decoration:none;
-                padding:12px;
-                border-radius:12px;
+                padding:13px;
+                border-radius:14px;
                 font-weight:bold;
                 transition:0.2s;
               }
 
               .watch{
-                background:#ff0033;
+                background:#ff004c;
                 color:white;
               }
 
               .download{
-                background:#252525;
+                background:#232323;
                 color:white;
               }
 
               .btn:hover{
-                opacity:0.85;
+                opacity:0.88;
               }
 
-              .top{
+              footer{
+                margin-top:60px;
                 text-align:center;
-                margin-bottom:50px;
-                color:#aaa;
+                color:#777;
+                font-size:14px;
               }
+
             </style>
           </head>
 
@@ -129,14 +142,14 @@ jobs:
 
             <h1>🎬 Explore Demo Videos</h1>
 
-            <div class="top">
+            <div class="subtitle">
               Auto generated from repository MP4 files
             </div>
 
             <div class="grid">
           EOF
 
-          find . -type f \( -iname "*.mp4" \) | while read file; do
+          find . -type f \( -iname "*.mp4" \) | sort | while read file; do
 
             cleanfile=$(echo "$file" | sed 's|^\./||')
 
@@ -145,38 +158,58 @@ jobs:
             encoded=$(python3 -c "import urllib.parse; print(urllib.parse.quote('''$cleanfile'''))")
 
             cat >> index.html << EOF
+
               <div class="card">
+
                 <video controls preload="metadata">
                   <source src="$encoded" type="video/mp4">
                 </video>
 
                 <div class="content">
-                  <div class="title">$filename</div>
+
+                  <div class="title">
+                    $filename
+                  </div>
 
                   <div class="buttons">
-                    <a class="btn watch" href="$encoded" target="_blank">
-                      ▶ Watch
+
+                    <a class="btn watch"
+                       href="$encoded"
+                       target="_blank">
+                       ▶ Watch
                     </a>
 
-                    <a class="btn download" href="$encoded" download>
-                      ⬇ Download
+                    <a class="btn download"
+                       href="$encoded"
+                       download>
+                       ⬇ Download
                     </a>
+
                   </div>
+
                 </div>
+
               </div>
+
           EOF
 
           done
 
           cat >> index.html << 'EOF'
+
             </div>
+
+            <footer>
+              Powered by GitHub Actions • Auto Updated
+            </footer>
 
           </body>
           </html>
           EOF
 
-      - name: Commit & Push Gallery
+      - name: Commit Gallery
         run: |
+
           git config user.name "cenvero-bot"
           git config user.email "cenvero-bot@cenvero.org"
 
@@ -187,3 +220,26 @@ jobs:
           git commit -m "Auto update video gallery"
 
           git push origin HEAD:${GITHUB_REF#refs/heads/}
+
+      - name: Upload GitHub Pages Artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: .
+
+  deploy:
+    needs: build-gallery
+
+    runs-on: ubuntu-latest
+
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
+    permissions:
+      pages: write
+      id-token: write
+
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
