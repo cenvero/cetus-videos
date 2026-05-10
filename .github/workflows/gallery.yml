@@ -796,38 +796,40 @@ jobs:
       - name: Inject Video List
         run: |
 
-          echo "Scanning for MP4 files..."
+          python3 << 'PYEOF'
+          import os, json, urllib.parse
 
-          VIDEOS_JS="const VIDEOS = ["
+          root = os.getcwd()
+          entries = []
 
-          first=true
-          find . -type f -iname "*.mp4" | grep -v "^./index.html" | sort | while read file; do
+          for dirpath, dirnames, filenames in os.walk(root):
+              # skip hidden dirs and .git
+              dirnames[:] = [d for d in dirnames if not d.startswith('.')]
+              for fname in sorted(filenames):
+                  if fname.lower().endswith('.mp4'):
+                      full  = os.path.join(dirpath, fname)
+                      rel   = os.path.relpath(full, root)   # e.g. videos/demo.mp4
+                      enc   = urllib.parse.quote(rel.replace(os.sep, '/'))
+                      entries.append({"src": enc, "name": fname, "path": rel.replace(os.sep, '/')})
+                      print(f"  Found: {rel}")
 
-            cleanfile=$(echo "$file" | sed 's|^\./||')
-            filename=$(basename "$cleanfile")
-            encoded=$(python3 -c "import urllib.parse; print(urllib.parse.quote('''$cleanfile'''))")
+          print(f"\nTotal: {len(entries)} video(s)")
 
-            if [ "$first" = false ]; then
-              VIDEOS_JS="$VIDEOS_JS,"
-            fi
-            first=false
+          js_line = "const VIDEOS = " + json.dumps(entries, ensure_ascii=False) + ";"
 
-            VIDEOS_JS="$VIDEOS_JS{\"src\":\"$encoded\",\"name\":\"$filename\",\"path\":\"$cleanfile\"}"
+          with open("index.html", "r", encoding="utf-8") as f:
+              html = f.read()
 
-            echo "  Found: $cleanfile"
-          done
+          if "VIDEOS_PLACEHOLDER" not in html:
+              print("ERROR: VIDEOS_PLACEHOLDER not found in index.html")
+              raise SystemExit(1)
 
-          VIDEOS_JS="$VIDEOS_JS];"
+          html = html.replace("VIDEOS_PLACEHOLDER", js_line)
 
-          python3 - "$VIDEOS_JS" << 'PYEOF'
-          import sys
-          js_line = sys.argv[1]
-          with open("index.html", "r") as f:
-              content = f.read()
-          content = content.replace("VIDEOS_PLACEHOLDER", js_line)
-          with open("index.html", "w") as f:
-              f.write(content)
-          print("Injected", js_line.count('"src"'), "video(s) into gallery.")
+          with open("index.html", "w", encoding="utf-8") as f:
+              f.write(html)
+
+          print("Injection done.")
           PYEOF
 
       - name: Commit Gallery
