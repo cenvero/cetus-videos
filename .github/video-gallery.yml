@@ -3,8 +3,7 @@ name: Generate Video Gallery
 on:
   push:
     branches:
-      - main
-      - master
+      - '**'
 
   workflow_dispatch:
 
@@ -179,7 +178,7 @@ jobs:
       - name: Commit & Push Gallery
         run: |
           git config user.name "cenvero-bot"
-          git config user.email "cenvero-bot@cenvero.org "
+          git config user.email "cenvero-bot@cenvero.org"
 
           git add index.html
 
